@@ -54,86 +54,9 @@ public class ThreadInfoCompositeData {
     private static LockInfo lockInfo =
         new LockInfo(lockClassName, lockIdentityHashCode);
 
-    @Test
-    public static void createGoodCompositeData() throws Exception {
-        CompositeData cd = Factory.makeThreadInfoCompositeData();
-        ThreadInfo info = ThreadInfo.from(cd);
-        checkThreadInfo(info);
-    }
-
-    /*
-     * An invalid CompositeData with JDK 9 attributes but missing JDK 6 attributes
-     */
-    @Test
-    public static void badMissingCompositeData() throws Exception {
-        CompositeData cd = Factory.makeCompositeDataMissingV6();
-        try {
-            ThreadInfo info = ThreadInfo.from(cd);
-            throw new RuntimeException("IllegalArgumentException not thrown");
-        } catch (IllegalArgumentException e) {}
-    }
-
     static final StackTraceElement STE =
         new StackTraceElement("FooClass", "getFoo", "Foo.java", 100);
 
-
-    /*
-     * Current version of ThreadInfo but an older version of StackTraceElement
-     */
-    @Test
-    public static void withV5StackTraceCompositeData() throws Exception {
-        CompositeData cd = Factory.makeThreadInfoWithV5StackTrace();
-        try {
-            ThreadInfo info = ThreadInfo.from(cd);
-            throw new RuntimeException("IllegalArgumentException not thrown");
-        } catch (IllegalArgumentException e) {}
-    }
-
-    /*
-     * Current version of ThreadInfo but an older version of MonitorInfo
-     * and the value of "lockedStackFrame" attribute is null.
-     */
-    @Test
-    public static void withInvalidMonitorInfoCompositeData() throws Exception {
-        CompositeData cd = Factory.makeThreadInfoWithIncompatibleMonitorInfo();
-
-        // verify MonitorInfo is valid
-        CompositeData[] monitors = (CompositeData[])cd.get("lockedMonitors");
-        CompositeData ste = (CompositeData)monitors[0].get("lockedStackFrame");
-        if (((Integer)monitors[0].get("lockedStackDepth")) >= 0 || ste != null) {
-            throw new RuntimeException("Expected negative stack depth and null stack frame");
-        }
-        MonitorInfo minfo = MonitorInfo.from(monitors[0]);
-        checkLockInfo(minfo);
-        if (minfo.getLockedStackFrame() != null) {
-            throw new RuntimeException("Expected null stack frame");
-        }
-
-        try {
-            ThreadInfo info = ThreadInfo.from(cd);
-            throw new RuntimeException("IllegalArgumentException not thrown");
-        } catch (IllegalArgumentException e) {}
-    }
-
-    /*
-     * ThreadInfo of version N can accept lockedMonitors of version >= N
-     */
-    @Test
-    public static void withNewMonitorInfoCompositeData() throws Exception {
-        CompositeData cd = Factory.makeThreadInfoWithNewMonitorInfo();
-        ThreadInfo info = ThreadInfo.from(cd);
-        checkThreadInfo(info);
-    }
-
-    /*
-     * Test CompositeData representing JDK 5 ThreadInfo
-     */
-    @Test
-    public static void createV5ThreadInfo() throws Exception {
-        CompositeData cd = Factory.makeThreadInfoV5CompositeData();
-        ThreadInfo info = ThreadInfo.from(cd);
-        checkThreadInfoV5(info);
-    }
 
     /*
      * Test ThreadInfoCompositeData.toCompositeData
@@ -264,25 +187,6 @@ public class ThreadInfoCompositeData {
                 li.getIdentityHashCode() + " expected = " +
                 lockInfo.getIdentityHashCode());
         }
-    }
-
-    @Test
-    public static void badNameCompositeData() throws Exception {
-        CompositeData cd = Factory.makeCompositeDataWithBadNames();
-        try {
-            ThreadInfo info = ThreadInfo.from(cd);
-            throw new RuntimeException("IllegalArgumentException not thrown");
-        } catch (IllegalArgumentException e) { }
-    }
-
-    @Test
-    public static void badTypeCompositeData() throws Exception {
-        CompositeData cd = Factory.makeCompositeDataWithBadTypes();
-
-        try {
-            ThreadInfo info = ThreadInfo.from(cd);
-            throw new RuntimeException("IllegalArgumentException not thrown");
-        } catch (IllegalArgumentException e) { }
     }
 
     private static final int THREAD_ID = 0;
