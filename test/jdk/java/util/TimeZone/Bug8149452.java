@@ -38,6 +38,17 @@ import java.util.List;
 public class Bug8149452 {
 
     public static void main(String[] args) {
+        List<String> NEW_ZONEIDS = List.of(
+                            "America/Punta_Arenas",
+                            "Asia/Atyrau",
+                            "Asia/Barnaul",
+                            "Asia/Famagusta",
+                            "Asia/Tomsk",
+                            "Europe/Astrakhan",
+                            "Europe/Kirov",
+                            "Europe/Saratov",
+                            "Europe/Ulyanovsk");
+     
         List<String> listNotFound = new ArrayList<>();
         String[][] zoneStrings = DateFormatSymbols.getInstance()
                 .getZoneStrings();
@@ -46,7 +57,8 @@ public class Bug8149452 {
                     .anyMatch(zone -> tzID.equalsIgnoreCase(zone[0]))) {
                 // to ignore names for Etc/GMT[+-][0-9]+ which are not supported
                 if (!tzID.startsWith("Etc/GMT")
-                        && !tzID.startsWith("GMT")) {
+                        && !tzID.startsWith("GMT")
+                        && !NEW_ZONEIDS.contains(tzID)) {
                     listNotFound.add(tzID);
                 }
             }
