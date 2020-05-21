@@ -20,6 +20,10 @@
 #  questions.
 #
 
+# test group for regression bug
+jdk_wqh = \
+    java/util/logging/CheckZombieLockTest.java
+
 # java.lang package and VM runtime support
 jdk_lang = \
     java/lang \
