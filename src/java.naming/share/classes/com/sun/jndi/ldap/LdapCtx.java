@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -224,6 +224,7 @@ final public class LdapCtx extends ComponentDirContext
     String hostname = null;             // host name of server (no brackets
                                         //   for IPv6 literals)
     LdapClient clnt = null;             // connection handle
+    private boolean reconnect = false;  // indicates that re-connect requested
     Hashtable<String, java.lang.Object> envprops = null; // environment properties of context
     int handleReferrals = DEFAULT_REFERRAL_MODE; // how referral is handled
     boolean hasLdapsScheme = false;     // true if the context was created
@@ -908,13 +909,13 @@ final public class LdapCtx extends ComponentDirContext
      * @param dn The non-null DN of the entry to add
      * @param attrs The non-null attributes of entry to add
      * @param directUpdate Whether attrs can be updated directly
-     * @return Non-null attributes with attributes from the RDN added
+     * @returns Non-null attributes with attributes from the RDN added
      */
     private static Attributes addRdnAttributes(String dn, Attributes attrs,
         boolean directUpdate) throws NamingException {
 
             // Handle the empty name
-            if (dn.isEmpty()) {
+            if (dn.equals("")) {
                 return attrs;
             }
 
@@ -1270,7 +1271,7 @@ final public class LdapCtx extends ComponentDirContext
         int prefixLast = prefix.size() - 1;
 
         if (name.isEmpty() || prefix.isEmpty() ||
-                name.get(0).isEmpty() || prefix.get(prefixLast).isEmpty()) {
+                name.get(0).equals("") || prefix.get(prefixLast).equals("")) {
             return super.composeName(name, prefix);
         }
 
@@ -1299,9 +1300,9 @@ final public class LdapCtx extends ComponentDirContext
 
     // used by LdapSearchEnumeration
     private static String concatNames(String lesser, String greater) {
-        if (lesser == null || lesser.isEmpty()) {
+        if (lesser == null || lesser.equals("")) {
             return greater;
-        } else if (greater == null || greater.isEmpty()) {
+        } else if (greater == null || greater.equals("")) {
             return lesser;
         } else {
             return (lesser + "," + greater);
@@ -2413,9 +2414,6 @@ final public class LdapCtx extends ComponentDirContext
         // First determine the referral mode
         if (ref != null) {
             switch (ref) {
-                case "follow-scheme":
-                    handleReferrals = LdapClient.LDAP_REF_FOLLOW_SCHEME;
-                    break;
                 case "follow":
                     handleReferrals = LdapClient.LDAP_REF_FOLLOW;
                     break;
@@ -2667,6 +2665,7 @@ final public class LdapCtx extends ComponentDirContext
         }
 
         sharable = false;  // can't share with existing contexts
+        reconnect = true;
         ensureOpen();      // open or reauthenticated
     }
 
@@ -2691,8 +2690,7 @@ final public class LdapCtx extends ComponentDirContext
                 synchronized (clnt) {
                     if (!clnt.isLdapv3
                         || clnt.referenceCount > 1
-                        || clnt.usingSaslStreams()
-                        || !clnt.conn.useable) {
+                        || clnt.usingSaslStreams()) {
                         closeConnection(SOFT_CLOSE);
                     }
                 }
@@ -2744,7 +2742,7 @@ final public class LdapCtx extends ComponentDirContext
         try {
             boolean initial = (clnt == null);
 
-            if (initial) {
+            if (initial || reconnect) {
                 ldapVersion = (ver != null) ? Integer.parseInt(ver) :
                     DEFAULT_LDAP_VERSION;
 
@@ -2771,6 +2769,8 @@ final public class LdapCtx extends ComponentDirContext
 
                     // Required for SASL client identity
                     envprops);
+
+                reconnect = false;
 
                 /**
                  * Pooled connections are preauthenticated;
@@ -2979,23 +2979,7 @@ final public class LdapCtx extends ComponentDirContext
             r = new LdapReferralException(resolvedName, resolvedObj, remainName,
                 msg, envprops, fullDN, handleReferrals, reqCtls);
             // only one set of URLs is present
-            Vector<String> refs;
-            if (res.referrals == null) {
-                refs = null;
-            } else if (handleReferrals == LdapClient.LDAP_REF_FOLLOW_SCHEME) {
-                refs = new Vector<>();
-                for (String s : res.referrals.elementAt(0)) {
-                    if (s.startsWith("ldap:")) {
-                        refs.add(s);
-                    }
-                }
-                if (refs.isEmpty()) {
-                    refs = null;
-                }
-            } else {
-                refs = res.referrals.elementAt(0);
-            }
-            r.setReferralInfo(refs, false);
+            r.setReferralInfo(res.referrals.elementAt(0), false);
 
             if (hopCount > 1) {
                 r.setHopCount(hopCount);
@@ -3033,7 +3017,7 @@ final public class LdapCtx extends ComponentDirContext
             }
 
             // extract SLAPD-style referrals from errorMessage
-            if ((res.errorMessage != null) && (!res.errorMessage.isEmpty())) {
+            if ((res.errorMessage != null) && (!res.errorMessage.equals(""))) {
                 res.referrals = extractURLs(res.errorMessage);
             } else {
                 e = new PartialResultException(msg);
@@ -3064,7 +3048,7 @@ final public class LdapCtx extends ComponentDirContext
              *     assume name resolution has not yet completed.
              */
             if (((res.entries == null) || (res.entries.isEmpty())) &&
-                ((res.referrals != null) && (res.referrals.size() == 1))) {
+                (res.referrals.size() == 1)) {
 
                 r.setReferralInfo(res.referrals, false);
 
